@@ -1,0 +1,196 @@
+#coding:utf-8
+import numpy as np
+import cv2
+import math
+
+def crop_xyxy2ori_xyxy(pred,x_shift,y_shift):
+    ori_pred=[]
+    pred=pred.cpu().numpy().tolist()
+    for det in pred:
+        # print()
+        # import pdb;pdb.set_trace()
+        # det=det.cpu().numpy()
+        # if det.shape[0]==0:
+        #     continue
+        # if det.shape[0]!=1:
+        #     import pdb;pdb.set_trace()
+        # assert det.shape[0] ==1 and det.shape[1]==6,f'det shape {det.shape} is not (1,6)!'
+        x1,y1,w,h,angle,conf,cls=det
+        ori_x1,ori_y1=x1+x_shift,y1+y_shift
+        ori_pred.append([ori_x1,ori_y1,w,h,angle,conf,cls])
+    return ori_pred
+def rboxes2points(pred,CLASSES,score_thr=0):
+    # import pdb;pdb.set_trace()
+    pred=np.array(pred)
+    assert pred.shape[1] == 6 or pred.shape[1] == 7
+    labels=pred[:,-1]
+    scores=pred[:,-2]
+    bboxes=pred[:,:5]
+    results_list=[]
+    if score_thr > 0:
+        assert pred.shape[1] == 7
+        inds = scores > score_thr
+        bboxes = pred[inds, :]
+        labels=labels[inds]
+        scores=scores[inds]
+    
+    for label,bbox,score in zip(labels,bboxes,scores):
+        object_dict={}
+        xc, yc, w, h, ag = bbox.tolist()
+        wx, wy = w / 2 * math.cos(ag), w / 2 * math.sin(ag)
+        hx, hy = -h / 2 * math.sin(ag), h / 2 * math.cos(ag)
+        p1 = (xc - wx - hx, yc - wy - hy)
+        p2 = (xc + wx - hx, yc + wy - hy)
+        p3 = (xc + wx + hx, yc + wy + hy)
+        p4 = (xc - wx + hx, yc - wy + hy)
+        #ps = np.int0(np.array([p1, p2, p3, p4]))
+        label_text=CLASSES[int(label)]
+        object_dict['category_id']=label_text
+        object_dict['points']=[[float(x[0]),float(x[1])] for x in [p1,p2,p3,p4]]
+        object_dict['confidence']=float(score)
+        results_list.append(object_dict)
+    return results_list
+def draw_clsdet_rotation(img,cls_dets,vis_thresh=0.001):
+    img2=img.copy()
+
+    for i in range(len(cls_dets)):
+        
+        bbox=[float(x) for x in cls_dets[i][:-2]]
+        x,y,w,h,theta=bbox
+        rect=((x,y),(w,h),theta)
+        score=cls_dets[i][-2]
+        label=cls_dets[i][-1]
+        # import pdb;pdb.set_trace()
+        bbox=cv2.boxPoints(rect).reshape((-1,1,2)).astype(np.int32)
+        if score>vis_thresh:
+            cv2.polylines(img2,[bbox],True,(0,255,0),3)
+            # put_text='conf : {:.3f}'.format(score)
+            # cv2.putText(img2,put_text,(int(x+w/2),int(y+h/2)),3,cv2.FONT_HERSHEY_PLAIN,(0,255,0),2)
+    return img2
+
+def draw_one_box(x,theta, im, color=(128, 128, 128), label=None, line_thickness=3):
+    # Plots one bounding box on image 'im' using OpenCV
+    assert im.data.contiguous, 'Image not contiguous. Apply np.ascontiguousarray(im) to plot_on_box() input image.'
+    tl = line_thickness or round(0.002 * (im.shape[0] + im.shape[1]) / 2) + 1  # line/font thickness
+    rect = ((int(x[0]), int(x[1])), (int(x[2]), int(x[3])), theta)
+    bbox = cv2.boxPoints(rect).reshape((-1, 1, 2)).astype(np.int32)
+    cv2.polylines(im, [bbox], True, color, thickness=tl, lineType=cv2.LINE_AA)
+    # c1, c2 = (int(x[0]), int(x[1])), (int(x[2]), int(x[3]))
+    # cv2.rectangle(im, c1, c2, color, thickness=tl, lineType=cv2.LINE_AA)
+    if label:
+        tf = max(tl - 1, 1)  # font thickness
+        t_size = cv2.getTextSize(label, 0, fontScale=tl / 3, thickness=tf)[0]
+        c2 = int(x[0]) + t_size[0], int(x[1]) - t_size[1] - 3
+        # cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
+        cv2.putText(im, label, (int(x[0]), int(x[1]) - 2), 0, tl / 3, [0, 0, 0], thickness=tf, lineType=cv2.LINE_AA)
+
+
+def draw_clsdet(img,cls_dets,vis_thresh):
+    '''
+    cls_dets:[(x1,y1,x2,y2,score),...]
+    return :
+    show_img: image with rectangle labels
+    '''
+    # import pdb;pdb.set_trace()
+    img2=img.copy()
+    H,W,C=img2.shape
+    for i in range(len(cls_dets)):
+        
+        bbox=[int(x) for x in cls_dets[i][:-2]]
+        x1,y1,x2,y2=bbox
+        score=cls_dets[i][-2]
+        label=cls_dets[i][-1]
+        if score>vis_thresh:
+            if C==1:
+                cv2.rectangle(img2,(x1,y1),(x2,y2),(255),10,10)
+                cv2.putText(img2,str(score)[:5],(x1,y1),10,cv2.FONT_HERSHEY_PLAIN,(255),10)
+            else:
+                cv2.rectangle(img2,(x1,y1),(x2,y2),(0,255,0),2,2)
+                cv2.putText(img2,str(score)[:5],(x1,y1),2,cv2.FONT_HERSHEY_PLAIN,(0,255,0),3)
+    return img2
+
+
+def iou(box1,box2,utype=0):
+    '''xmin,ymin,xmax,ymax
+    utype: 0 for union
+    utype: 1 for box1
+    utype: 2 for box2'''
+    xmin1,ymin1,xmax1,ymax1=box1[0],box1[1],box1[2],box1[3]
+    xmin2,ymin2,xmax2,ymax2=box2[0],box2[1],box2[2],box2[3]
+    size1=(xmax1-xmin1)*(ymax1-ymin1)
+    size2=(xmax2-xmin2)*(ymax2-ymin2)
+
+    xmin=max(xmin1,xmin2)
+    ymin=max(ymin1,ymin2)
+    xmax=min(xmax1,xmax2)
+    ymax=min(ymax1,ymax2)
+    i_size=(xmax-xmin)*(ymax-ymin)
+    if xmin>=xmax or ymin>=ymax:
+        return 0
+    if utype == 1:
+        return i_size/float(size1)
+    if utype == 2:
+        return i_size/float(size2)
+    return i_size/float(size1+size2-i_size)
+
+def nms(predictions,iou_thre,conf_thre):
+    '''
+    input:
+    predictions:(list),[x1,y1,x2,y2,score,clss],shape[nums_bboxes,6]
+    iou_thre: nms overlap threshold
+    conf_thre: confidence score to filter
+    output:
+    nms_bboxes:(list),[x1,y1,x2,y2,score,clss],shape[nums_bboxes,6]
+    '''
+    # import pdb;pdb.set_trace()
+    if len(predictions)<2:
+        return np.array(predictions).tolist()
+    predictions=np.array(predictions)
+    predictions=predictions[predictions[:,-1].argsort()] #sort by classes
+    classes_num=predictions[:,-1].max()
+    #import pdb;pdb.set_trace()
+    nms_bboxes=[]
+    clss_bboxes=[]
+    for clss in range(int(classes_num+1)): 
+        # clss 0 : background 
+        clss_predictions=predictions[predictions[...,-1]==clss]
+        clss_predictions=clss_predictions[np.argsort(-clss_predictions[...,-2])]
+        clss_bboxes=[]
+        for i in range(len(clss_predictions)):
+            predict=clss_predictions[i]
+            bb=predict[:-2]
+            score=predict[-2]
+
+            if score<conf_thre:
+                continue
+
+            if len(clss_bboxes)==0:
+                clss_bboxes.append(predict)
+                clss_bboxes=np.array(clss_bboxes)
+                continue
+            #import pdb;pdb.set_trace()
+            ixmin = np.maximum(clss_bboxes[:, 0], bb[0])
+            iymin = np.maximum(clss_bboxes[:, 1], bb[1])
+            ixmax = np.minimum(clss_bboxes[:, 2], bb[2])
+            iymax = np.minimum(clss_bboxes[:, 3], bb[3])
+
+            iw = np.maximum(ixmax - ixmin, 0.)
+            ih = np.maximum(iymax - iymin, 0.)
+            inters = iw * ih
+            uni = ((bb[2] - bb[0]) * (bb[3] - bb[1]) +
+                       (clss_bboxes[:, 2] - clss_bboxes[:, 0]) *
+                       (clss_bboxes[:, 3] - clss_bboxes[:, 1]) - inters)
+
+            overlaps = inters / uni
+            # 求与之前最大的iou
+            if (overlaps<iou_thre).all():
+                clss_bboxes=np.vstack((clss_bboxes,predict))
+            # else:
+            #     print('nms bbox {} ,iou {}\n'.format(predict.tolist(),overlaps.max()))
+        if len(nms_bboxes)==0:
+            nms_bboxes=clss_bboxes.copy()
+            #nms_bboxes=np.a
+        else:
+            nms_bboxes=np.vstack((nms_bboxes,clss_bboxes))
+        nms_bboxes=np.array(nms_bboxes).tolist()
+    return nms_bboxes
