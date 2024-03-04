@@ -60,7 +60,7 @@ When utilizing the IP_Function, initiate the process by clicking the IP_Function
 
 ## DataSet
 
-Due to the size limitations on GitHub, we have placed the test dataset and weight files on Google Drive. You can access them through the following link:[DateSet](https://drive.google.com/file/d/1MbqGs8OZXdsefxvs59CycTa6Sd9pc_Tk/view?usp=drive_link), [Weights]
+Due to the size limitations on GitHub, we have placed the test dataset and weight files on Google Drive. You can access them through the following link:[DateSet](https://drive.google.com/file/d/1MbqGs8OZXdsefxvs59CycTa6Sd9pc_Tk/view?usp=drive_link), [Weights](https://drive.google.com/file/d/1fp3SKVkQwM9QVOahVDsL2n_HlN674VBQ/view?usp=drive_link)
 Upon completing the download, kindly extract the contents of the DataSet to the "SeedRuler/inference/Data_Set" directory and place the extracted contents of the Weights in the "SeedRuler/weights" directory.
 
 ## Environment  
