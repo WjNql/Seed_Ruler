@@ -73,7 +73,7 @@ If you are running this project using GPU, please configure CUDA and cuDNN accor
 | ----: | ------- |
 |  CUDA | 10.1    |
 
-### package Environment 
+### Package Environment 
 
 This project is based on Python 3.8.13. The required environment is as follows:  
 
@@ -90,4 +90,4 @@ For more required packages, please refer to the [requirements.txt](requirements.
 
 ## Questions
 
-If you have any questions, requests, or comments, we kindly invite you to contact us at [ma-yan@shnu.edu.cn](ma-yan@shnu.edu.cn).
+If you have any questions, requests, or comments, we kindly invite you to contact us at [dlphenomics@163.com](dlphenomics@163.com).
