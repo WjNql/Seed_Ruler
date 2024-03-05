@@ -12,7 +12,7 @@ SeedRuler is an offline software developed in Python, leveraging YOLO, Segment-a
 
 SeedRuler offers an intuitive user interface for acquiring rice seed images, precisely positioning and segmenting seeds, determining seed germination status, and generating output data for seed quantity and germination rate for all captured images. Users can employ images with seeds in contact, significantly enhancing user convenience.
 
-We also provide you with an online service version of SeedRuler. Please visit http://www.seedruler.cn for more information.
+We also provide you with an online service version of SeedRuler. Please visit [seedruler](https://u263790-ad15-4e65cb7d.westc.gpuhub.com:8443/IMSFGM) for more information.
 
 
 
